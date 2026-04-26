@@ -83,8 +83,9 @@ export default function CheckoutPage() {
       const { orderId } = orderRes.data
 
       // 3. Open Razorpay
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY || orderRes.key || ''
       const options = {
-        key: orderRes.key || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: razorpayKey,
         amount: Math.round(grandTotal * 100),
         currency: 'INR',
         name: 'CineBook',

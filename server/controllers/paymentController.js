@@ -1,11 +1,18 @@
-import Razorpay from 'razorpay'
 import dotenv from 'dotenv'
 dotenv.config()
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
+let razorpay = null
+
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  const Razorpay = (await import('razorpay')).default
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  })
+  console.log('[Razorpay] Initialized successfully')
+} else {
+  console.warn('[Razorpay] Keys not configured - payment will use demo mode')
+}
 
 export const createOrder = async (req, res) => {
   try {
@@ -17,8 +24,24 @@ export const createOrder = async (req, res) => {
 
     console.log('[Razorpay] Creating order:', { amount, currency })
 
+    if (!razorpay) {
+      // Demo mode - return fake order
+      const fakeOrderId = 'order_demo_' + Date.now()
+      console.log('[Razorpay] Demo mode - returning fake order')
+      return res.json({
+        success: true,
+        data: {
+          orderId: fakeOrderId,
+          amount: Math.round(amount * 100),
+          currency,
+          receipt: receipt || `receipt_${Date.now()}`,
+          demo: true
+        }
+      })
+    }
+
     const options = {
-      amount: Math.round(amount * 100), // Razorpay expects amount in paise
+      amount: Math.round(amount * 100),
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
       notes: {
@@ -53,7 +76,13 @@ export const verifyPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing payment details' })
     }
 
-    const crypto = require('crypto')
+    if (razorpay_order_id.startsWith('order_demo_')) {
+      // Demo mode verification
+      console.log('[Razorpay] Demo mode - skipping signature verification')
+      return res.json({ success: true, message: 'Payment verified (demo)' })
+    }
+
+    const crypto = await import('crypto')
     const generatedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -75,6 +104,6 @@ export const verifyPayment = async (req, res) => {
 export const getKey = (req, res) => {
   res.json({
     success: true,
-    data: { key: process.env.RAZORPAY_KEY_ID }
+    data: { key: process.env.RAZORPAY_KEY_ID || '' }
   })
 }
