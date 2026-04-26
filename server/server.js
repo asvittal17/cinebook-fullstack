@@ -12,22 +12,50 @@ import Theater from './models/Theater.js';
 
 dotenv.config();
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://cinebook-fullstack-giqtgp63i-asvittal17s-projects.vercel.app',
+  'https://cinebook-fullstack.vercel.app',
+];
+
 const startServer = async () => {
   await connectDB();
   
-  // Clean up problematic 2dsphere index from old theaters
   try {
     await Theater.collection.dropIndex('location_2dsphere').catch(() => {});
     await Theater.updateMany({}, { $unset: { location: "" } });
     console.log('✅ Cleaned up old theater indexes');
-  } catch (e) {
-    // Ignore if no indexes to drop
-  }
-  
+  } catch (e) {}
+
   const app = express();
 
-  app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+  app.use(cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  }));
   app.use(express.json());
+
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'ok',
+      message: 'CineBook API is running',
+      endpoints: {
+        health: '/api/health',
+        tmdb: '/api/tmdb/*',
+        theaters: '/api/theaters/*',
+        shows: '/api/shows/*',
+        bookings: '/api/bookings/*',
+        payment: '/api/payment/*'
+      }
+    });
+  });
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'CineBook API running' }));
 
@@ -39,6 +67,9 @@ const startServer = async () => {
   app.use('/api/payment', paymentRoutes);
 
   app.use((err, req, res, next) => {
+    if (err.message === 'Not allowed by CORS') {
+      return res.status(403).json({ success: false, message: 'CORS not allowed' });
+    }
     console.error(err.stack);
     res.status(500).json({ success: false, message: 'Internal server error' });
   });

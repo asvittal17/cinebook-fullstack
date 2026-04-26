@@ -13,28 +13,48 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState('trending')
+  const [error, setError] = useState(null)
 
   const search = searchParams.get('search') || ''
 
-  const load = async (showRefresh = false) => {
+  const fetchMovies = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setError(null)
+    
     try {
+      console.log('[HomePage] API_URL:', import.meta.env.VITE_API_URL)
+      
+      let res
       if (tab === 'trending') {
         console.log('[HomePage] Fetching trending...')
-        const res = await tmdbAPI.getTrending()
-        console.log('[HomePage] Trending response:', JSON.stringify(res).substring(0, 200))
-        console.log('[HomePage] Trending data:', res.data)
-        console.log('[HomePage] Is array?', Array.isArray(res.data))
-        setMovies(Array.isArray(res.data) ? res.data : [])
+        res = await tmdbAPI.getTrending()
+        console.log('[HomePage] Trending response:', res)
       } else {
         console.log('[HomePage] Fetching now playing...')
-        const res = await tmdbAPI.getNowPlaying()
-        console.log('[HomePage] Now playing response:', JSON.stringify(res).substring(0, 200))
-        setMovies(Array.isArray(res.data) ? res.data : [])
+        res = await tmdbAPI.getNowPlaying()
+        console.log('[HomePage] Now playing response:', res)
+      }
+      
+      console.log('[HomePage] Response structure:', typeof res, res?.constructor?.name)
+      
+      // Handle both array directly or {success, data} format
+      if (Array.isArray(res)) {
+        console.log('[HomePage] Received array directly, setting movies')
+        setMovies(res)
+      } else if (res && Array.isArray(res.data)) {
+        console.log('[HomePage] Received object with data array')
+        setMovies(res.data)
+      } else if (res && Array.isArray(res.data?.data)) {
+        console.log('[HomePage] Received object with data.data array')
+        setMovies(res.data.data)
+      } else {
+        console.log('[HomePage] Unknown response format, movies:', movies)
+        setMovies([])
       }
     } catch (e) {
-      console.error('Load error:', e)
+      console.error('[HomePage] Load error:', e)
+      setError(e.message)
       setMovies([])
     } finally {
       setLoading(false)
@@ -43,10 +63,10 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    load()
+    fetchMovies()
   }, [tab, search])
 
-  const handleRefresh = () => load(true)
+  const handleRefresh = () => fetchMovies(true)
 
   const isEmpty = !loading && movies.length === 0
 
@@ -60,6 +80,12 @@ export default function HomePage() {
           <div className="mb-8">
             <p className="text-gray-400 text-sm">Showing results for</p>
             <h2 className="text-2xl font-bold text-white mt-1">"{search}"</h2>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-lg text-red-400">
+            Error: {error}
           </div>
         )}
 
@@ -90,7 +116,10 @@ export default function HomePage() {
                 <div className="col-span-full text-center py-20">
                   <p className="text-6xl mb-4">🎬</p>
                   <p className="text-xl font-semibold text-white mb-2">No movies found</p>
-                  <p className="text-gray-400 text-sm">Configure TMDB API key to fetch movies</p>
+                  <p className="text-gray-400 text-sm">
+                    {error ? 'API Error - check console' : 'Configure TMDB API key to fetch movies'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">API_URL: {import.meta.env.VITE_API_URL || 'NOT SET'}</p>
                 </div>
               )
               : movies.map(movie => (
