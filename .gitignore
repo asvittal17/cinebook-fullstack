@@ -1,0 +1,43 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.example
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# MongoDB data
+data/
+
+# Temp files
+tmp/
+temp/
+.cache/
