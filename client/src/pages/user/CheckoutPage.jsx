@@ -90,7 +90,7 @@ export default function CheckoutPage() {
         currency: 'INR',
         name: 'CineBook',
         description: `Movie: ${show.movie?.title || 'Movie'} | Seats: ${selectedSeats.map(s => s.seatNumber).join(', ')}`,
-        image: 'https://via.placeholder.com/150x40?text=CineBook',
+        image: 'https://placehold.co/150x40/6366f1/ffffff?text=CineBook',
         order_id: orderId,
         handler: async (response) => {
           try {

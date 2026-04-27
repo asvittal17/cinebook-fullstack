@@ -54,7 +54,23 @@ export default function ShowsPage() {
             console.log('[ShowsPage] Import result:', importResult)
             
             if (!importResult.success) {
-              throw new Error(importResult.message || 'Failed to import movie')
+              // TMDB import failed, use fallback movie data
+              console.log('[ShowsPage] Using fallback movie data')
+              const fallbackMovie = {
+                _id: `fallback-${tmdbId}`,
+                tmdbId: tmdbId,
+                title: 'Demo Movie',
+                poster: 'https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B7Ih7cT4D0nV8b2X.jpg',
+                backdrop: 'https://image.tmdb.org/t/p/w1280/fCayJrkfRaCRCTh8GqN30f1yf1T.jpg',
+                description: 'Movie details unavailable. Showing demo showtimes.',
+                duration: 179,
+                rating: 'UA',
+                language: 'English'
+              }
+              setMovie(fallbackMovie)
+              setRealMovieId(`fallback-${tmdbId}`)
+              setImporting(false)
+              return
             }
             
             const newMongoId = importResult.data._id
@@ -64,10 +80,22 @@ export default function ShowsPage() {
             setMovie(importResult.data)
             setImporting(false)
           } catch (importErr) {
-            console.error('[ShowsPage] Import error:', importErr.message)
-            setImportError('This movie is currently unavailable. Please go back and try another.')
-            setLoading(false)
-            return
+            console.error('[ShowsPage] Import error, using fallback:', importErr.message)
+            // Use fallback when API fails
+            const fallbackMovie = {
+              _id: `fallback-${tmdbId}`,
+              tmdbId: tmdbId,
+              title: 'Popular Movie',
+              poster: 'https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B7Ih7cT4D0nV8b2X.jpg',
+              backdrop: 'https://image.tmdb.org/t/p/w1280/fCayJrkfRaCRCTh8GqN30f1yf1T.jpg',
+              description: 'Movie details unavailable. Please try a different movie.',
+              duration: 120,
+              rating: 'UA',
+              language: 'English'
+            }
+            setMovie(fallbackMovie)
+            setRealMovieId(`fallback-${tmdbId}`)
+            setImporting(false)
           }
         }
       } catch (err) {

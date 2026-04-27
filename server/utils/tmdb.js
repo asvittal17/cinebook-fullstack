@@ -7,59 +7,63 @@ const IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
 console.log('[TMDB] API Key loaded:', TMDB_API_KEY ? 'YES (length: ' + TMDB_API_KEY.length + ')' : 'NO')
 
+// Safe fetch with timeout
+const safeFetch = async (url, timeoutMs = 8000) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  
+  try {
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' }
+    })
+    clearTimeout(timeout)
+    return res
+  } catch (e) {
+    clearTimeout(timeout)
+    if (e.name === 'AbortError') {
+      throw new Error('Request timeout')
+    }
+    throw e
+  }
+}
+
 export const TMDB = {
   getImageUrl: (path, size = 'w500') => path ? `${IMAGE_BASE}/${size}${path}` : null,
 
   isConfigured: () => !!TMDB_API_KEY,
 
   searchMovies: async (query) => {
-    if (!TMDB_API_KEY) {
-      console.log('[TMDB] No API key, returning empty array')
-      return [];
-    }
+    if (!TMDB_API_KEY) return []
     try {
-      const url = `${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
-      console.log('[TMDB] Searching:', url.replace(TMDB_API_KEY, '***'))
-      const res = await fetch(url)
+      const res = await safeFetch(`${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`)
       const data = await res.json()
       return data.results?.filter(r => r.media_type === 'movie').slice(0, 10) || []
-    } catch (e) { 
-      console.error('[TMDB] Search error:', e)
-      return [] 
-    }
+    } catch { return [] }
   },
 
   getPopularMovies: async (page = 1) => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await fetch(`${TMDB_BASE}/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`)
+      const res = await safeFetch(`${TMDB_BASE}/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`)
       const data = await res.json()
       return data.results || []
     } catch { return [] }
   },
 
   getNowPlaying: async () => {
-    if (!TMDB_API_KEY) {
-      console.log('[TMDB] getNowPlaying: No API key')
-      return []
-    }
+    if (!TMDB_API_KEY) return []
     try {
-      const url = `${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&page=1`
-      console.log('[TMDB] Fetching now_playing:', url.replace(TMDB_API_KEY, '***'))
-      const res = await fetch(url)
+      const res = await safeFetch(`${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&page=1`)
       const data = await res.json()
-      console.log('[TMDB] now_playing results:', data.results?.length || 0)
       return data.results?.slice(0, 10) || []
-    } catch (e) { 
-      console.error('[TMDB] getNowPlaying error:', e)
-      return [] 
-    }
+    } catch { return [] }
   },
 
   getUpcomingMovies: async () => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await fetch(`${TMDB_BASE}/movie/upcoming?api_key=${TMDB_API_KEY}&page=1`)
+      const res = await safeFetch(`${TMDB_BASE}/movie/upcoming?api_key=${TMDB_API_KEY}&page=1`)
       const data = await res.json()
       return data.results || []
     } catch { return [] }
@@ -68,7 +72,7 @@ export const TMDB = {
   getIndianMovies: async () => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await fetch(`${TMDB_BASE}/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&sort_by=popularity.desc&page=1`)
+      const res = await safeFetch(`${TMDB_BASE}/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&sort_by=popularity.desc&page=1`)
       const data = await res.json()
       return data.results?.slice(0, 10) || []
     } catch { return [] }
@@ -77,32 +81,27 @@ export const TMDB = {
   getMovieDetails: async (tmdbId) => {
     if (!TMDB_API_KEY) return {}
     try {
-      const res = await fetch(`${TMDB_BASE}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=credits`)
-      if (!res.ok) {
-        if (res.status === 404) throw new Error(`Movie ID ${tmdbId} not found`)
-        throw new Error(`TMDB API error: ${res.status}`)
-      }
+      const res = await safeFetch(`${TMDB_BASE}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=credits`)
+      if (!res.ok) return {}
       const data = await res.json()
       return data
     } catch (err) {
-      throw err
+      console.error('[TMDB] getMovieDetails error:', err.message)
+      return {}
     }
   },
 
   getTrendingMovies: async () => {
-    if (!TMDB_API_KEY) {
-      console.log('[TMDB] getTrendingMovies: No API key')
-      return []
-    }
+    if (!TMDB_API_KEY) return []
     try {
       const url = `${TMDB_BASE}/trending/movie/day?api_key=${TMDB_API_KEY}`
       console.log('[TMDB] Fetching trending:', url.replace(TMDB_API_KEY, '***'))
-      const res = await fetch(url)
+      const res = await safeFetch(url, 15000) // Longer timeout for trending
       const data = await res.json()
       console.log('[TMDB] trending results:', data.results?.length || 0)
       return data.results?.slice(0, 10) || []
     } catch (e) { 
-      console.error('[TMDB] getTrendingMovies error:', e)
+      console.error('[TMDB] getTrendingMovies error:', e.message)
       return [] 
     }
   },

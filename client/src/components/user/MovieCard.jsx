@@ -4,8 +4,6 @@ import { Star, Clock, Play } from 'lucide-react'
 const RATING_COLORS = { U: 'bg-green-600', UA: 'bg-yellow-600', A: 'bg-red-600', S: 'bg-purple-600' }
 
 const getMovieLink = (movie) => {
-  // If movie has tmdbId field (real TMDB movie), link to /movie/tmdb-{tmdbId}
-  // If movie has MongoDB _id (local DB movie), link to /movie/{_id}
   if (movie.tmdbId) {
     return `/movie/tmdb-${movie.tmdbId}`
   }
@@ -19,8 +17,27 @@ const getShowsLink = (movie) => {
   return `/movie/${movie._id}/shows`
 }
 
+const getPosterUrl = (movie) => {
+  // Try poster from TMDB first
+  if (movie.poster) return movie.poster
+  
+  // Try tmdb poster path
+  if (movie.poster_path) return `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+  
+  // Generate a deterministic fallback based on title
+  const seed = movie.title?.replace(/\s+/g, '').slice(0, 10) || movie._id || 'default'
+  return `https://placehold.co/300x450/1a1a2e/6366f1?text=${encodeURIComponent(seed)}`
+}
+
+const handleImageError = (e, movie) => {
+  const seed = movie.title?.replace(/\s+/g, '').slice(0, 10) || movie._id || 'default'
+  e.target.src = `https://placehold.co/300x450/1a1a2e/6366f1?text=${encodeURIComponent(seed)}`
+}
+
 export default function MovieCard({ movie }) {
   const { _id, title, poster, duration, genre = [], imdbRating, rating, releaseDate, tmdbId } = movie
+
+  const posterUrl = getPosterUrl(movie)
 
   return (
     <div className="group relative">
@@ -29,11 +46,11 @@ export default function MovieCard({ movie }) {
           
           <div className="relative aspect-[2/3] overflow-hidden">
             <img
-              src={poster || (tmdbId ? `https://picsum.photos/seed/tmdb${tmdbId}/300/450` : `https://picsum.photos/seed/${_id}/300/450`)}
+              src={posterUrl}
               alt={title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
-              onError={e => { e.target.src = tmdbId ? `https://picsum.photos/seed/tmdb${tmdbId}/300/450` : `https://picsum.photos/seed/${_id}/300/450` }}
+              onError={(e) => handleImageError(e, movie)}
             />
             
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent opacity-60" />
