@@ -5,27 +5,45 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
-console.log('[TMDB] API Key loaded:', TMDB_API_KEY ? 'YES (length: ' + TMDB_API_KEY.length + ')' : 'NO')
+console.log('[TMDB] API Key loaded:', TMDB_API_KEY ? `YES (length: ${TMDB_API_KEY.length})` : 'NO')
+console.log('[TMDB] Base URL:', TMDB_BASE)
 
-// Safe fetch with timeout
-const safeFetch = async (url, timeoutMs = 8000) => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  
-  try {
-    const res = await fetch(url, { 
-      signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
-    })
-    clearTimeout(timeout)
-    return res
-  } catch (e) {
-    clearTimeout(timeout)
-    if (e.name === 'AbortError') {
-      throw new Error('Request timeout')
+// Fetch is built-in since Node 18, but let's handle it properly
+const fetch = globalThis.fetch || (await import('node-fetch')).default
+
+// Retry fetch with multiple attempts
+const fetchWithRetry = async (url, options = {}, retries = 3, delay = 2000) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`[TMDB] Attempt ${attempt}/${retries}: ${url}`)
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000)
+      
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      })
+      clearTimeout(timeout)
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+      }
+      
+      return res
+    } catch (err) {
+      console.error(`[TMDB] Attempt ${attempt} failed:`, err.message)
+      if (attempt < retries) {
+        console.log(`[TMDB] Waiting ${delay}ms before retry...`)
+        await new Promise(r => setTimeout(r, delay))
+      }
     }
-    throw e
   }
+  throw new Error(`Failed after ${retries} attempts`)
 }
 
 export const TMDB = {
@@ -34,55 +52,79 @@ export const TMDB = {
   isConfigured: () => !!TMDB_API_KEY,
 
   searchMovies: async (query) => {
-    if (!TMDB_API_KEY) return []
+    if (!TMDB_API_KEY) {
+      console.warn('[TMDB] No API key configured')
+      return []
+    }
     try {
-      const res = await safeFetch(`${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`)
+      const url = `${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
       return data.results?.filter(r => r.media_type === 'movie').slice(0, 10) || []
-    } catch { return [] }
+    } catch (err) {
+      console.error('[TMDB] searchMovies error:', err.message)
+      return []
+    }
   },
 
   getPopularMovies: async (page = 1) => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await safeFetch(`${TMDB_BASE}/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`)
+      const url = `${TMDB_BASE}/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
       return data.results || []
-    } catch { return [] }
+    } catch (err) {
+      console.error('[TMDB] getPopularMovies error:', err.message)
+      return []
+    }
   },
 
   getNowPlaying: async () => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await safeFetch(`${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&page=1`)
+      const url = `${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&page=1`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
+      console.log('[TMDB] now_playing results:', data.results?.length || 0)
       return data.results?.slice(0, 10) || []
-    } catch { return [] }
+    } catch (err) {
+      console.error('[TMDB] getNowPlaying error:', err.message)
+      return []
+    }
   },
 
   getUpcomingMovies: async () => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await safeFetch(`${TMDB_BASE}/movie/upcoming?api_key=${TMDB_API_KEY}&page=1`)
+      const url = `${TMDB_BASE}/movie/upcoming?api_key=${TMDB_API_KEY}&page=1`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
       return data.results || []
-    } catch { return [] }
+    } catch (err) {
+      console.error('[TMDB] getUpcomingMovies error:', err.message)
+      return []
+    }
   },
 
   getIndianMovies: async () => {
     if (!TMDB_API_KEY) return []
     try {
-      const res = await safeFetch(`${TMDB_BASE}/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&sort_by=popularity.desc&page=1`)
+      const url = `${TMDB_BASE}/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&sort_by=popularity.desc&page=1`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
       return data.results?.slice(0, 10) || []
-    } catch { return [] }
+    } catch (err) {
+      console.error('[TMDB] getIndianMovies error:', err.message)
+      return []
+    }
   },
 
   getMovieDetails: async (tmdbId) => {
     if (!TMDB_API_KEY) return {}
     try {
-      const res = await safeFetch(`${TMDB_BASE}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=credits`)
-      if (!res.ok) return {}
+      const url = `${TMDB_BASE}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=credits`
+      const res = await fetchWithRetry(url)
       const data = await res.json()
       return data
     } catch (err) {
@@ -92,34 +134,30 @@ export const TMDB = {
   },
 
   getTrendingMovies: async () => {
-    if (!TMDB_API_KEY) return []
+    if (!TMDB_API_KEY) {
+      console.warn('[TMDB] No API key - returning empty')
+      return []
+    }
+    
     try {
       const url = `${TMDB_BASE}/trending/movie/day?api_key=${TMDB_API_KEY}`
-      console.log('[TMDB] Fetching trending:', url.replace(TMDB_API_KEY, '***'))
-      const res = await safeFetch(url, 15000) // Longer timeout for trending
+      console.log('[TMDB] URL:', url.replace(TMDB_API_KEY, '***'))
+      
+      const res = await fetchWithRetry(url)
       const data = await res.json()
-      console.log('[TMDB] trending results:', data.results?.length || 0)
+      
+      console.log('[TMDB] Response status:', res.status)
+      console.log('[TMDB] Results count:', data.results?.length || 0)
+      
+      if (data.errors) {
+        console.error('[TMDB] TMDB API errors:', data.errors)
+      }
+      
       return data.results?.slice(0, 10) || []
-    } catch (e) { 
-      console.error('[TMDB] getTrendingMovies error:', e.message)
-      return [] 
+    } catch (err) {
+      console.error('[TMDB] getTrendingMovies FAILED:', err.message)
+      console.error('[TMDB] Full error:', err)
+      return []
     }
   },
-
-  mapToMovie: (data) => ({
-    title: data.title,
-    description: data.overview,
-    poster: TMDB.getImageUrl(data.poster_path),
-    backdrop: TMDB.getImageUrl(data.backdrop_path, 'w1280'),
-    duration: data.runtime || 120,
-    releaseDate: data.release_date,
-    genre: data.genres?.map(g => g.name) || [],
-    language: data.original_language,
-    rating: 'UA',
-    imdbRating: data.vote_average ? Math.round(data.vote_average * 10) / 10 : null,
-    director: data.credits?.crew?.find(c => c.job === 'Director')?.name,
-    cast: data.credits?.cast?.slice(0, 5).map(c => ({ name: c.name, role: c.character, image: TMDB.getImageUrl(c.profile_path, 'w185') })) || [],
-    trailerUrl: null,
-    isActive: true,
-  }),
 }
