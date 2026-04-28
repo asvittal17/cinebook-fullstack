@@ -32,7 +32,7 @@ export default function AdminShows() {
     finally { setLoading(false) }
   }
 
-  useEffect(load, [])
+  useEffect(() => { load() }, [])
 
   const handleDateTimeChange = (showTime) => {
     const date = showTime ? showTime.split('T')[0] : ''

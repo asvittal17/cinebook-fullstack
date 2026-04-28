@@ -30,7 +30,7 @@ export default function AdminMovies() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [])
+  useEffect(() => { load() }, [])
 
   const openAdd = () => { setEditMovie(null); setForm(EMPTY_FORM); setModalOpen(true) }
   const openEdit = (movie) => {

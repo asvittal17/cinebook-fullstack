@@ -35,15 +35,18 @@ const startServer = async () => {
     credentials: true,
   }));
 
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
+  app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://cinebook-fullstack.vercel.app",
+    "https://cinebook-fullstack-git-main-asvittal17s-projects.vercel.app",
+    "https://cinebook-fullstack-13kc8xr05-asvittal17s-projects.vercel.app",
+    "https://cinebook-fullstack-giqtgp63i-asvittal17s-projects.vercel.app"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+}));
 
   app.use(express.json());
 

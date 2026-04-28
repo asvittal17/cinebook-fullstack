@@ -32,7 +32,7 @@ export default function AdminBookings() {
   }
 
   useEffect(() => { setPage(1) }, [statusFilter])
-  useEffect(load, [statusFilter, page])
+  useEffect(() => { load() }, [statusFilter, page])
 
   const filtered = search
     ? bookings.filter(b =>
