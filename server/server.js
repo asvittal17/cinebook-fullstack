@@ -16,14 +16,13 @@ dotenv.config();
 
 const startServer = async () => {
   try {
-    // Connect Database
+    // ✅ Connect Database
     await connectDB();
 
-    // Cleanup old indexes
+    // ✅ Cleanup old indexes
     try {
       await Theater.collection.dropIndex('location_2dsphere').catch(() => {});
       await Theater.updateMany({}, { $unset: { location: "" } });
-
       console.log('✅ Cleaned up old theater indexes');
     } catch (e) {
       console.log('⚠️ Index cleanup skipped');
@@ -31,27 +30,30 @@ const startServer = async () => {
 
     const app = express();
 
-    // Allowed Frontend Origins
-    const allowedOrigins = [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://cinebook-fullstack.vercel.app",
-      "https://cinebook-fullstack-git-main-asvittal17s-projects.vercel.app",
-      "https://cinebook-fullstack-13kc8xr05-asvittal17s-projects.vercel.app",
-      "https://cinebook-fullstack-giqtgp63i-asvittal17s-projects.vercel.app"
-    ];
+    // ✅ TRUST PROXY (important for Render)
+    app.set('trust proxy', 1);
 
-    // CORS Middleware
-    app.use(cors({
+    // ✅ CORS CONFIG (FINAL FIX)
+    const corsOptions = {
       origin: function (origin, callback) {
-        // Allow requests with no origin (Postman/mobile apps)
+        // Allow requests with no origin (Postman, mobile apps)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
+        // Allow localhost (development)
+        if (
+          origin.includes("localhost") ||
+          origin.includes("127.0.0.1")
+        ) {
+          return callback(null, true);
         }
+
+        // ✅ Allow ALL Vercel deployments (FIXES YOUR ISSUE)
+        if (origin.endsWith(".vercel.app")) {
+          return callback(null, true);
+        }
+
+        // ❌ Block other origins
+        return callback(new Error("Not allowed by CORS: " + origin));
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -62,15 +64,17 @@ const startServer = async () => {
         "Accept",
         "Authorization"
       ]
-    }));
+    };
 
-    // Handle Preflight Requests
-    app.options('*', cors());
+    app.use(cors(corsOptions));
 
-    // Body Parser
+    // ✅ Proper preflight handling
+    app.options('*', cors(corsOptions));
+
+    // ✅ Body parser
     app.use(express.json());
 
-    // Root Route
+    // ✅ Root route
     app.get('/', (req, res) => {
       res.json({
         status: 'ok',
@@ -87,7 +91,7 @@ const startServer = async () => {
       });
     });
 
-    // Health Route
+    // ✅ Health route
     app.get('/api/health', (req, res) => {
       res.json({
         status: 'ok',
@@ -95,7 +99,7 @@ const startServer = async () => {
       });
     });
 
-    // Routes
+    // ✅ Routes
     app.use('/api/tmdb', tmdbRoutes);
     app.use('/api/shows', showRoutes);
     app.use('/api/movies', movieRoutes);
@@ -103,9 +107,17 @@ const startServer = async () => {
     app.use('/api/bookings', bookingRoutes);
     app.use('/api/payment', paymentRoutes);
 
-    // Global Error Handler
+    // ✅ Global Error Handler
     app.use((err, req, res, next) => {
       console.error('❌ Server Error:', err.message);
+
+      // Handle CORS errors specifically
+      if (err.message.includes("CORS")) {
+        return res.status(403).json({
+          success: false,
+          message: err.message
+        });
+      }
 
       res.status(500).json({
         success: false,
@@ -113,7 +125,7 @@ const startServer = async () => {
       });
     });
 
-    // Start Server
+    // ✅ Start server
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, '0.0.0.0', () => {
