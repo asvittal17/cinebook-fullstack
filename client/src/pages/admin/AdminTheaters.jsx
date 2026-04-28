@@ -27,7 +27,7 @@ export default function AdminTheaters() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [cityFilter])
+  useEffect(() => { load() }, [cityFilter])
 
   const openAdd = () => { setEditTheater(null); setForm(EMPTY_FORM); setModalOpen(true) }
   const openEdit = (t) => { setEditTheater(t); setForm({ ...t, amenities: t.amenities || [] }); setModalOpen(true) }
