@@ -83,7 +83,7 @@ export default function CheckoutPage() {
       const { orderId } = orderRes.data
 
       // 3. Open Razorpay
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY || orderRes.key || ''
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || orderRes.key || ''
       const options = {
         key: razorpayKey,
         amount: Math.round(grandTotal * 100),
