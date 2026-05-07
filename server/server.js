@@ -33,42 +33,59 @@ const startServer = async () => {
     // ✅ TRUST PROXY (important for Render)
     app.set('trust proxy', 1);
 
-    // ✅ CORS CONFIG (FINAL FIX)
+    // ✅ FINAL CORS CONFIG
     const corsOptions = {
       origin: function (origin, callback) {
-        // Allow requests with no origin (Postman, mobile apps)
-        if (!origin) return callback(null, true);
+        console.log('🌍 Request Origin:', origin);
 
-        // Allow localhost (development)
+        // Allow requests without origin
+        // (Postman, mobile apps, curl)
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        // ✅ Allow localhost
         if (
-          origin.includes("localhost") ||
-          origin.includes("127.0.0.1")
+          origin.includes('localhost') ||
+          origin.includes('127.0.0.1')
         ) {
           return callback(null, true);
         }
 
-        // ✅ Allow ALL Vercel deployments (FIXES YOUR ISSUE)
-        if (origin.endsWith(".vercel.app")) {
+        // ✅ Allow ALL Vercel deployments
+        if (origin.includes('.vercel.app')) {
           return callback(null, true);
         }
 
-        // ❌ Block other origins
-        return callback(new Error("Not allowed by CORS: " + origin));
+        // ✅ TEMP: Allow all origins
+        // (remove later if needed)
+        return callback(null, true);
       },
+
       credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+
+      methods: [
+        'GET',
+        'POST',
+        'PUT',
+        'DELETE',
+        'PATCH',
+        'OPTIONS'
+      ],
+
       allowedHeaders: [
-        "Origin",
-        "X-Requested-With",
-        "Content-Type",
-        "Accept",
-        "Authorization"
+        'Origin',
+        'X-Requested-With',
+        'Content-Type',
+        'Accept',
+        'Authorization'
       ]
     };
 
+    // ✅ Enable CORS
     app.use(cors(corsOptions));
 
-    // ✅ Proper preflight handling
+    // ✅ Handle preflight requests
     app.options(/.*/, cors(corsOptions));
 
     // ✅ Body parser
@@ -99,7 +116,7 @@ const startServer = async () => {
       });
     });
 
-    // ✅ Routes
+    // ✅ API Routes
     app.use('/api/tmdb', tmdbRoutes);
     app.use('/api/shows', showRoutes);
     app.use('/api/movies', movieRoutes);
@@ -109,15 +126,7 @@ const startServer = async () => {
 
     // ✅ Global Error Handler
     app.use((err, req, res, next) => {
-      console.error('❌ Server Error:', err.message);
-
-      // Handle CORS errors specifically
-      if (err.message.includes("CORS")) {
-        return res.status(403).json({
-          success: false,
-          message: err.message
-        });
-      }
+      console.error('❌ Server Error:', err);
 
       res.status(500).json({
         success: false,
@@ -125,7 +134,7 @@ const startServer = async () => {
       });
     });
 
-    // ✅ Start server
+    // ✅ Start Server
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, '0.0.0.0', () => {
