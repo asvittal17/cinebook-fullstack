@@ -1,6 +1,7 @@
 import Show from '../models/Show.js';
 import Theater from '../models/Theater.js';
 import Movie from '../models/Movie.js';
+import mongoose from 'mongoose';
 
 const groupShowsByTheater = (shows) => {
   const grouped = {};
@@ -89,21 +90,58 @@ export const getShowsByMovie = async (req, res) => {
   const useCity = city || 'Mumbai';
 
   // Try database first
-  let shows = await Show.find({ movie: movieId, date: queryDate, isActive: true })
-    .populate('theater', 'name city').sort({ showTime: 1 });
+  let shows = [];
+
+// ✅ Only query MongoDB for valid ObjectIds
+if (mongoose.Types.ObjectId.isValid(movieId)) {
+  shows = await Show.find({
+    movie: movieId,
+    date: queryDate,
+    isActive: true
+  })
+    .populate('theater', 'name city')
+    .sort({ showTime: 1 });
+}
 
   // If nothing in DB, try to create
-  if (shows.length === 0) {
-    const created = await createDemoShows(movieId, useCity, queryDate);
-    if (created.length > 0) {
-      shows = await Show.find({ movie: movieId, date: queryDate, isActive: true })
-        .populate('theater', 'name city').sort({ showTime: 1 });
-    }
+// If nothing in DB, try to create
+if (shows.length === 0) {
+
+  const created = await createDemoShows(
+    movieId,
+    useCity,
+    queryDate
+  );
+
+  if (
+    created.length > 0 &&
+    mongoose.Types.ObjectId.isValid(movieId)
+  ) {
+
+    shows = await Show.find({
+      movie: movieId,
+      date: queryDate,
+      isActive: true
+    })
+      .populate('theater', 'name city')
+      .sort({ showTime: 1 });
+
   }
+
+}
 
   // FINAL FALLBACK: If still nothing, return hardcoded demo data
   if (shows.length === 0) {
-    const movie = await Movie.findById(movieId);
+    let movie = null;
+
+// ✅ Only query MongoDB for valid ObjectIds
+if (
+  movieId &&
+  movieId.length === 24 &&
+  !movieId.startsWith('fallback-')
+) {
+  movie = await Movie.findById(movieId);
+}
     const theaterName = `PVR ${useCity}`;
     const demoData = [
       {
