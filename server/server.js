@@ -69,7 +69,7 @@ const startServer = async () => {
     app.use(cors(corsOptions));
 
     // ✅ Proper preflight handling
-    app.options('*', cors(corsOptions));
+    app.options(/.*/, cors(corsOptions));
 
     // ✅ Body parser
     app.use(express.json());
