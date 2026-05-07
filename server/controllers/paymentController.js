@@ -1,17 +1,34 @@
 import dotenv from 'dotenv'
 dotenv.config()
 
+import Razorpay from 'razorpay'
+
 let razorpay = null
 
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-  const Razorpay = (await import('razorpay')).default
-  razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-  })
-  console.log('[Razorpay] Initialized successfully')
-} else {
-  console.warn('[Razorpay] Keys not configured - payment will use demo mode')
+try {
+
+  if (
+    process.env.RAZORPAY_KEY_ID &&
+    process.env.RAZORPAY_KEY_SECRET
+  ) {
+
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+
+    console.log('[Razorpay] Initialized successfully')
+
+  } else {
+
+    console.warn('[Razorpay] Keys not configured - demo mode enabled')
+
+  }
+
+} catch (err) {
+
+  console.error('[Razorpay Init Error]', err)
+
 }
 
 export const createOrder = async (req, res) => {
